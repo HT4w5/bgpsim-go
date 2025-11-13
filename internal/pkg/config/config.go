@@ -10,6 +10,7 @@ import (
 
 // Primary config struct
 type Config struct {
+	Name        string                   `json:"name"`
 	Nodes       []*model.NodeConfig      `json:"nodes"`
 	BgpTopology *model.BgpTopologyConfig `json:"bgpTopology"`
 }
