@@ -9,17 +9,17 @@ import (
 type StaticRouteType int
 
 const (
-	LOCAL StaticRouteType = iota
-	CONNECTED
-	BGP
-	STATIC
+	SR_LOCAL StaticRouteType = iota
+	SR_CONNECTED
+	SR_BGP
+	SR_STATIC
 )
 
 var staticRouteTypeMap = map[string]StaticRouteType{
-	"LOCAL":     LOCAL,
-	"CONNECTED": CONNECTED,
-	"BGP":       BGP,
-	"STATIC":    STATIC,
+	"LOCAL":     SR_LOCAL,
+	"CONNECTED": SR_CONNECTED,
+	"BGP":       SR_BGP,
+	"STATIC":    SR_STATIC,
 }
 
 type StaticRoute struct {

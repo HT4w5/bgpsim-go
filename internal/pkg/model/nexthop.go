@@ -7,10 +7,10 @@ import (
 type NextHopType int
 
 const (
-	IP NextHopType = iota
-	INTERFACE
-	DISCARD
-	INVALID
+	NH_IP NextHopType = iota
+	NH_INTERFACE
+	NH_DISCARD
+	NH_INVALID
 )
 
 type NextHop struct {
@@ -23,7 +23,7 @@ func NewInvalidNextHop() *NextHop {
 	return &NextHop{
 		ip:    nil,
 		iface: nil,
-		t:     INVALID,
+		t:     NH_INVALID,
 	}
 }
 
@@ -35,13 +35,13 @@ func NewNextHop(ip net.IP, iface string) *NextHop {
 		return &NextHop{
 			ip:    nil,
 			iface: &iface,
-			t:     INTERFACE,
+			t:     NH_INTERFACE,
 		}
 	} else {
 		return &NextHop{
 			ip:    ip,
 			iface: nil,
-			t:     IP,
+			t:     NH_IP,
 		}
 	}
 }
