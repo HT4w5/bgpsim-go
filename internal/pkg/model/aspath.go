@@ -18,7 +18,7 @@ func NewAsPath() *AsPath {
 }
 
 // Add a new AS number to the front of the path
-func (ap *AsPath) prepend(as int) error {
+func (ap *AsPath) Prepend(as int) error {
 	if _, ok := ap.indexMap[as]; ok {
 		return fmt.Errorf("duplicate AS number in path: %d", as)
 	}

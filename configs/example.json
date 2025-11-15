@@ -1,41 +1,68 @@
 {
-    "config_name": "example",
-    "routers": [
-        {
-            "tag": "r1",
-            "local_as": 1,
-            "bgp": {
-                "router_id": "1.1.1.1",
-                "networks_advertised": [
-                    "1.1.1.0/24"
-                ],
-                "peers": [
-                    {
-                        "tag": "r2",
-                        "remote_as": 2,
-                        "local_ip": "192.168.12.1",
-                        "remote_ip": "192.168.12.2"
-                    }
-                ]
+    "log": {
+        "output": ""
+    },
+    "network": {
+        "network_name": "example",
+        "routers": [
+            {
+                "tag": "r1",
+                "local_as": 1,
+                "bgp": {
+                    "router_id": "1.1.1.1",
+                    "networks_advertised": [
+                        "1.1.1.0/24"
+                    ],
+                    "peers": [
+                        {
+                            "tag": "r2",
+                            "remote_as": 2,
+                            "local_ip": "192.168.12.1",
+                            "remote_ip": "192.168.12.2"
+                        }
+                    ]
+                },
+                "static": {
+                    "routes": [
+                        {
+                            "network": "1.1.1.0/24",
+                            "next_hop": {
+                                "ip": "",
+                                "interface": "discard"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "tag": "r2",
+                "local_as": 2,
+                "bgp": {
+                    "router_id": "2.2.2.2",
+                    "networks_advertised": [
+                        "2.2.2.0/24"
+                    ],
+                    "peers": [
+                        {
+                            "tag": "r1",
+                            "remote_as": 1,
+                            "local_ip": "192.168.12.2",
+                            "remote_ip": "192.168.12.1"
+                        }
+                    ]
+                },
+                "static": {
+                    "routes": [
+                        {
+                            "network": "2.2.2.0/24",
+                            "next_hop": {
+                                "ip": "",
+                                "interface": "discard"
+                            }
+                        }
+                    ]
+                }
             }
-        },
-        {
-            "tag": "r2",
-            "local_as": 2,
-            "bgp": {
-                "router_id": "2.2.2.2",
-                "networks_advertised": [
-                    "2.2.2.0/24"
-                ],
-                "peers": [
-                    {
-                        "tag": "r1",
-                        "remote_as": 1,
-                        "local_ip": "192.168.12.2",
-                        "remote_ip": "192.168.12.1"
-                    }
-                ]
-            }
-        }
-    ]
+        ]
+    }
 }

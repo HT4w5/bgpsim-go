@@ -10,10 +10,8 @@ import (
 
 // Primary config struct
 type Config struct {
-	Name        string                   `json:"name"`
-	Log         *LogConfig               `json:"log"`
-	Nodes       []*model.NodeConfig      `json:"nodes"`
-	BgpTopology *model.BgpTopologyConfig `json:"bgpTopology"`
+	Log     *LogConfig           `json:"log"`
+	Network *model.NetworkConfig `json:"network"`
 }
 
 type LogConfig struct {
@@ -23,12 +21,8 @@ type LogConfig struct {
 // Create empty config
 func New() *Config {
 	return &Config{
-		Log:   &LogConfig{},
-		Nodes: []*model.NodeConfig{},
-		BgpTopology: &model.BgpTopologyConfig{
-			Nodes: []*model.BgpNodeConfig{},
-			Edges: []*model.BgpEdgeConfig{},
-		},
+		Log:     &LogConfig{},
+		Network: &model.NetworkConfig{},
 	}
 }
 
