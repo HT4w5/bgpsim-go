@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	logFlags = log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile
+	logFlags = log.Llongfile
 )
 
 func main() {
