@@ -6,19 +6,19 @@ import (
 )
 
 type AsPath struct {
-	indexMap map[int]int
-	path     []int
+	indexMap map[uint32]int
+	path     []uint32
 }
 
 func NewAsPath() *AsPath {
 	return &AsPath{
-		indexMap: map[int]int{},
-		path:     []int{},
+		indexMap: map[uint32]int{},
+		path:     []uint32{},
 	}
 }
 
 // Add a new AS number to the front of the path
-func (ap *AsPath) Prepend(as int) error {
+func (ap *AsPath) Prepend(as uint32) error {
 	if _, ok := ap.indexMap[as]; ok {
 		return fmt.Errorf("duplicate AS number in path: %d", as)
 	}
@@ -27,7 +27,7 @@ func (ap *AsPath) Prepend(as int) error {
 	return nil
 }
 
-func (ap *AsPath) HasAs(as int) bool {
+func (ap *AsPath) HasAs(as uint32) bool {
 	_, ok := ap.indexMap[as]
 	return ok
 }
