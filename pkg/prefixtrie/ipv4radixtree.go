@@ -32,6 +32,30 @@ func (n *IPv4RadixTreeNode[V]) mergeWith(o *IPv4RadixTreeNode[V]) {
 	n.len += o.len
 }
 
+func (n *IPv4RadixTreeNode[V]) forkAt(len uint8) bool {
+	child := &IPv4RadixTreeNode[V]{
+		zero: n.zero,
+		one:  n.one,
+		val:  n.val,
+		seq:  n.seq << len,
+		len:  n.len - len,
+	}
+
+	n.val = nil
+	childDirection := uint32GetBit(n.seq, len) // Direction in which child is attached
+	if childDirection {
+		n.one = child
+		n.zero = nil
+	} else {
+		n.one = nil
+		n.zero = child
+	}
+	n.len = len
+	n.seq &= uint32PrefixMask(len)
+
+	return childDirection
+}
+
 func NewIPv4RadixTree[V any]() *IPv4RadixTree[V] {
 	return &IPv4RadixTree[V]{
 		len:  0,
@@ -45,167 +69,88 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 	seqBytes := p.Addr().As4()
 	seq := binary.BigEndian.Uint32(seqBytes[:])
 	len := uint8(p.Bits())
+
+	// Empty tree
+	if t.len == 0 {
+		t.root = &IPv4RadixTreeNode[V]{
+			zero: nil,
+			one:  nil,
+			val:  &v,
+			seq:  seq,
+			len:  len,
+		}
+		t.len++
+		return
+	}
+	var parent *IPv4RadixTreeNode[V]
+	parent = nil
+	direction := false
 	node := t.root
 
 	for true {
-		// Equally-lengthed current and node sequence
-		lenCmp := uint8Cmp(len, node.len)
-		// Longest common prefix length
-		lcpl := uint32LCPL(seq, node.seq)
-
-		if lenCmp == 0 {
-			if lcpl >= int(len) {
-				// Override value of current node
-				if node.val == nil {
-					t.len++
-				}
-				node.val = &v
-				return
-			}
+		if node == nil {
+			break
 		}
 
-		// Current sequence is longer than node sequence
-		// AND lcpl not shorter than node sequence
-		if lenCmp > 0 && lcpl >= int(node.len) {
-			// The first bit where the current seqence is longer than the node sequence
-			nextBit := uint32GetBit(seq, node.len)
+		lcpl := min(uint8(uint32LCPL(seq, node.seq)), len, node.len)
+
+		if lcpl == node.len {
 			// Go to next iteration
-			var nextNode *IPv4RadixTreeNode[V]
-			if nextBit {
-				// Next bit is 1
-				if node.one != nil {
-					nextNode = node.one
-				} else {
-					// No further match
-					// Create new node
-					node.one = &IPv4RadixTreeNode[V]{
-						zero: nil,
-						one:  nil,
-						seq:  seq << node.len,
-						len:  len - node.len,
-						val:  &v,
-					}
-					// Increment size counter
-					t.len++
-					return
-				}
-			} else {
-				// Next bit is 0
-				if node.zero != nil {
-					nextNode = node.zero
-				} else {
-					// No further match
-					// Create new node
-					node.zero = &IPv4RadixTreeNode[V]{
-						zero: nil,
-						one:  nil,
-						seq:  seq << node.len,
-						len:  len - node.len,
-						val:  &v,
-					}
-					// Increment size counter
-					t.len++
-					return
-				}
-			}
+			direction = uint32GetBit(seq, node.len)
+			parent = node
 			seq <<= node.len
 			len -= node.len
-			node = nextNode
+			if direction {
+				node = parent.one
+			} else {
+				node = parent.zero
+			}
+			// Break on next iteration if no length left
+			if len == 0 {
+				node = nil
+			}
 			continue
 		}
 
-		if lcpl >= int(len) {
-			// The first bit where the node seqence is longer than the current length
-			nextBit := uint32GetBit(node.seq, len)
-			// Fork case 1
-			//     ...
-			//      |
-			//      A <-- (node)
-			//     / \
-			//   nil  C
-			//        |
-			//       ...
-			//
-			// Original node is divided into A and C,
-			// while current insertion is bound to A.val
+		// Fork current node (N)
+		//  ...      ...
+		//   |        |
+		//   N   ->   N
+		//  / \      / \
+		// X   Y   nil  B
+		//             / \
+		//            X   Y
+		direction = !node.forkAt(lcpl)
+		parent = node
+		seq <<= lcpl
+		len -= lcpl
+		node = nil
+	}
 
-			nodeC := &IPv4RadixTreeNode[V]{
-				zero: node.zero,
-				one:  node.one,
-				seq:  node.seq << len,
-				len:  node.len - len,
-				val:  node.val,
-			}
-
-			// Use original node as A
-			if nextBit {
-				// C is attached to A.one
-				node.zero = nil
-				node.one = nodeC
-			} else {
-				// The opposite
-				node.one = nil
-				node.zero = nodeC
-			}
-
-			node.seq &= uint32PrefixMask(len)
-			node.len = len
-			node.val = &v
-			// Increment size counter
+	// Insert new value
+	if len == 0 {
+		// Just set value of parent
+		if parent.val == nil {
 			t.len++
-			return
 		}
-
-		// Fork case 2
-		//     ...
-		//      |
-		//      A <-- (node)
-		//     / \
-		//    B   C
-		//        |
-		//       ...
-		//
-		// Original node is divided into A and C,
-		// while current insertion is bound to B.val,
-		// which is newly created
-
-		// The first bit where the current seqence is longer than the LCPL
-		nextBit := uint32GetBit(seq, uint8(lcpl))
-
-		nodeB := &IPv4RadixTreeNode[V]{
-			zero: nil,
-			one:  nil,
-			seq:  seq << lcpl,
-			len:  len - uint8(lcpl), // If previous conditions are met, len is guaranteed to be larger than lcpl
-			val:  &v,
-		}
-
-		nodeC := &IPv4RadixTreeNode[V]{
-			zero: node.zero,
-			one:  node.one,
-			seq:  node.seq << lcpl,
-			len:  node.len - uint8(lcpl),
-			val:  node.val,
-		}
-
-		// Use original node as A
-		if nextBit {
-			// B is attached to A.one
-			// C is attached to A.zero
-			node.one = nodeB
-			node.zero = nodeC
-		} else {
-			// The opposite
-			node.zero = nodeB
-			node.one = nodeC
-		}
-
-		node.seq &= uint32PrefixMask(uint8(lcpl))
-		node.len = uint8(lcpl)
-		node.val = nil
-		// Increment size counter
-		t.len++
+		parent.val = &v
 		return
+	}
+
+	// Attach new node to parent
+	t.len++
+	newNode := &IPv4RadixTreeNode[V]{
+		zero: nil,
+		one:  nil,
+		val:  &v,
+		seq:  seq,
+		len:  len,
+	}
+
+	if direction {
+		parent.one = newNode
+	} else {
+		parent.zero = newNode
 	}
 }
 
@@ -392,7 +337,7 @@ func (t *IPv4RadixTree[V]) Delete(prefix netip.Prefix) bool {
 	if found {
 		// Cases where a value potentially doesn't exist
 		// Default route or node with two children
-		if node.zero != nil && node.one != nil || parent == nil {
+		if node.zero != nil && node.one != nil {
 			// 2 children
 			// Only delete value
 			if node.val == nil {
@@ -405,6 +350,11 @@ func (t *IPv4RadixTree[V]) Delete(prefix netip.Prefix) bool {
 		// From now on, there must be a value to be deleted
 		t.len--
 		if node.zero == nil && node.one == nil {
+			if parent == nil {
+				// Default route
+				node.val = nil
+				return true
+			}
 			// No children
 			// Delete node
 			var child *IPv4RadixTreeNode[V]

@@ -136,7 +136,7 @@ func randomIPv4Addr(ran *rand.Rand) netip.Addr {
 }
 
 func TestFixedSeed(t *testing.T) {
-	ct := newCrossTester(34038)
+	ct := newCrossTester(1)
 	for i := range 10 {
 		msg, err := ct.tick()
 		fmt.Printf("Iteration %d: %s    %v\n", i, msg, err)
@@ -147,9 +147,9 @@ func TestFixedSeed(t *testing.T) {
 }
 
 func TestMultipleSeeds(t *testing.T) {
-	for seed := range 100000 {
+	for seed := range 1000 {
 		ct := newCrossTester(int64(seed))
-		for range 10 {
+		for range 1000 {
 			_, err := ct.tick()
 			if err != nil {
 				t.Errorf("error on seed %d", seed)

@@ -368,18 +368,27 @@ func TestIPv4RadixTreeDelete(t *testing.T) {
 	}
 }
 
-func TestIPv4RadixTreeSP1(t *testing.T) {
+func TestIPv4RadixTreeDefaultRoute(t *testing.T) {
 	rt := prefixtrie.NewIPv4RadixTree[string]()
 
-	p1 := "160.0.0.0/4"
-	p2 := "178.190.211.0/24"
-	p0 := "128.0.0.0/2"
+	p1 := "0.0.0.0/0"
 
-	rt.Insert(netip.MustParsePrefix(p1), p1)
-	rt.Insert(netip.MustParsePrefix(p2), p2)
-	rt.Insert(netip.MustParsePrefix(p0), p0)
-
-	fmt.Println(rt.GetTable())
+	rt.Insert(netip.MustParsePrefix(p1), "default")
+	m1 := rt.Query(netip.MustParseAddr("1.1.1.1"))
+	if !m1.Found() {
+		t.Error("shouldn find match")
+	} else if m1.GetPrefix() != netip.MustParsePrefix(p1) {
+		t.Error("incorrect prefix")
+	} else if m1.GetValue() != "default" {
+		t.Error("incorrect value")
+	}
+	if !rt.Delete(netip.MustParsePrefix(p1)) {
+		t.Error("failed to delete default route")
+	}
+	m2 := rt.Query(netip.MustParseAddr("1.1.1.1"))
+	if m2.Found() {
+		t.Error("shouldn't find match")
+	}
 }
 
 // Warning: LLM generated
