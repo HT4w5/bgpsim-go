@@ -368,6 +368,20 @@ func TestIPv4RadixTreeDelete(t *testing.T) {
 	}
 }
 
+func TestIPv4RadixTreeSP1(t *testing.T) {
+	rt := prefixtrie.NewIPv4RadixTree[string]()
+
+	p1 := "160.0.0.0/4"
+	p2 := "178.190.211.0/24"
+	p0 := "128.0.0.0/2"
+
+	rt.Insert(netip.MustParsePrefix(p1), p1)
+	rt.Insert(netip.MustParsePrefix(p2), p2)
+	rt.Insert(netip.MustParsePrefix(p0), p0)
+
+	fmt.Println(rt.GetTable())
+}
+
 // Warning: LLM generated
 
 func TestIPv4RadixTree_HappyPath(t *testing.T) {

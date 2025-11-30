@@ -34,20 +34,13 @@ func (n *IPv4RadixTreeNode[V]) mergeWith(o *IPv4RadixTreeNode[V]) {
 
 func NewIPv4RadixTree[V any]() *IPv4RadixTree[V] {
 	return &IPv4RadixTree[V]{
-		len: 0,
-		root: &IPv4RadixTreeNode[V]{
-			zero: nil,
-			one:  nil,
-			seq:  0,
-			len:  0,
-			val:  nil,
-		},
+		len:  0,
+		root: nil,
 	}
 }
 
 func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
-	// Increment size counter
-	t.len++
+	p = p.Masked()
 
 	seqBytes := p.Addr().As4()
 	seq := binary.BigEndian.Uint32(seqBytes[:])
@@ -63,6 +56,9 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 		if lenCmp == 0 {
 			if lcpl >= int(len) {
 				// Override value of current node
+				if node.val == nil {
+					t.len++
+				}
 				node.val = &v
 				return
 			}
@@ -89,6 +85,8 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 						len:  len - node.len,
 						val:  &v,
 					}
+					// Increment size counter
+					t.len++
 					return
 				}
 			} else {
@@ -105,6 +103,8 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 						len:  len - node.len,
 						val:  &v,
 					}
+					// Increment size counter
+					t.len++
 					return
 				}
 			}
@@ -140,15 +140,19 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 			// Use original node as A
 			if nextBit {
 				// C is attached to A.one
+				node.zero = nil
 				node.one = nodeC
 			} else {
 				// The opposite
+				node.one = nil
 				node.zero = nodeC
 			}
 
 			node.seq &= uint32PrefixMask(len)
 			node.len = len
 			node.val = &v
+			// Increment size counter
+			t.len++
 			return
 		}
 
@@ -199,6 +203,8 @@ func (t *IPv4RadixTree[V]) Insert(p netip.Prefix, v V) {
 		node.seq &= uint32PrefixMask(uint8(lcpl))
 		node.len = uint8(lcpl)
 		node.val = nil
+		// Increment size counter
+		t.len++
 		return
 	}
 }
@@ -328,6 +334,7 @@ func (t *IPv4RadixTree[V]) GetTable() string {
 }
 
 func (t *IPv4RadixTree[V]) Delete(prefix netip.Prefix) bool {
+	prefix = prefix.Masked()
 	if t.len == 0 {
 		return false
 	}
@@ -336,7 +343,8 @@ func (t *IPv4RadixTree[V]) Delete(prefix netip.Prefix) bool {
 	seq := binary.BigEndian.Uint32(seqBytes[:])
 	len := uint8(prefix.Bits())
 	node := t.root
-	parent := t.root   // Track parent for merging
+	var parent *IPv4RadixTreeNode[V] // Track parent for merging
+	parent = nil
 	direction := false // Direction of last descent
 
 	found := false
@@ -382,12 +390,21 @@ func (t *IPv4RadixTree[V]) Delete(prefix netip.Prefix) bool {
 	}
 
 	if found {
-		t.len--
-		if node.zero != nil && node.one != nil {
+		// Cases where a value potentially doesn't exist
+		// Default route or node with two children
+		if node.zero != nil && node.one != nil || parent == nil {
 			// 2 children
 			// Only delete value
+			if node.val == nil {
+				return false
+			}
 			node.val = nil
-		} else if node.zero == nil && node.one == nil {
+			t.len--
+			return true
+		}
+		// From now on, there must be a value to be deleted
+		t.len--
+		if node.zero == nil && node.one == nil {
 			// No children
 			// Delete node
 			var child *IPv4RadixTreeNode[V]
