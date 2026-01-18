@@ -1,4 +1,4 @@
 package model
 
-type BgpRib struct {
+type BGPRIB struct {
 }

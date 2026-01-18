@@ -1,7 +1,6 @@
 package model
 
 import (
-	"net"
 	"net/netip"
 	"time"
 )
@@ -33,6 +32,6 @@ type BgpAttrs struct {
 
 type BgpOrigin struct {
 	Iface       string
-	LinkLocalIp net.IP
+	LinkLocalIp netip.Addr
 	T           BgpOriginType
 }

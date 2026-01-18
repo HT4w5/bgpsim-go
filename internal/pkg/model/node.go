@@ -17,11 +17,11 @@ type NodeConfig struct {
 }
 
 type Node struct {
-	name           string
-	routerId       int
-	mainRib        *MainRib
-	links          []*Link
-	bgpRib         *BgpRib
+	name     string
+	routerId int
+	//mainRib        *MainRib
+	links []*Link
+	//bgpRib         *BgpRib
 	localAs        int
 	localAdminCost int
 	ebgpAdminCost  int

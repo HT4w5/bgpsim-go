@@ -1,4 +1,4 @@
 package model
 
-type MainRib struct {
+type MainRIB struct {
 }

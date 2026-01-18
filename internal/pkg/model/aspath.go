@@ -37,6 +37,9 @@ func (ap *AsPath) Len() int {
 }
 
 func (ap *AsPath) String() string {
+	if len(ap.path) == 0 {
+		return ""
+	}
 	var sb strings.Builder
 	for i := len(ap.path) - 1; i >= 1; i-- {
 		sb.WriteString(fmt.Sprintf("%d ", ap.path[i]))

@@ -19,4 +19,5 @@ func NewRouter(cfg *RouterConfig) (*Router, error) {
 		tag:     cfg.Tag,
 		localAs: cfg.LocalAs,
 	}
+	return r, nil
 }
