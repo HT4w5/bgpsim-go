@@ -3,50 +3,48 @@ package rib
 import (
 	"net/netip"
 
+	"github.com/HT4w5/bgpsim-go/pkg/rpool"
 	"github.com/gaissmai/bart"
 )
 
-type Protocol int
-
-const (
-	BGP Protocol = iota
-)
-
 type Rib struct {
-	ipt *bart.Table[map[Route]struct{}]
+	ipt *bart.Table[*rpool.RoutePool]
 }
 
 func MakeRib() *Rib {
 	return &Rib{
-		ipt: &bart.Table[map[Route]struct{}]{},
+		ipt: &bart.Table[*rpool.RoutePool]{},
 	}
 }
 
 // AddRoute adds a route to the RIB
-func (rib *Rib) AddRoute(route Route) {
-	m, ok := rib.ipt.LookupPrefix(route.Prefix)
+func (rib *Rib) AddRoute(route Route) bool {
+	changed := false
+	p, ok := rib.ipt.LookupPrefix(route.Prefix)
 	if !ok {
-		m = make(map[Route]struct{})
-		rib.ipt.Insert(route.Prefix, m)
+		changed = true
+		p = rpool.MakeRoutePool()
+		rib.ipt.Insert(route.Prefix, p)
 	}
-	m[route] = struct{}{}
+	changed = p.Insert(route) || changed
+	return changed
 }
 
 // RemoveRoute removes a route from the RIB
-func (rib *Rib) RemoveRoute(route Route) {
-	m, ok := rib.ipt.LookupPrefix(route.Prefix)
+func (rib *Rib) RemoveRoute(route Route) bool {
+	p, ok := rib.ipt.LookupPrefix(route.Prefix)
 	if !ok {
-		return
+		return false
 	}
-	delete(m, route)
+	return p.Remove(route)
 }
 
 // GetRoutes returns all routes in the RIB
 func (rib *Rib) GetRoutes() []Route {
 	routes := make([]Route, rib.ipt.Size())
 	for _, m := range rib.ipt.All() {
-		for r, _ := range m {
-			routes = append(routes, r)
+		for r := range m.All() {
+			routes = append(routes, r.(Route))
 		}
 	}
 	return routes
@@ -56,8 +54,8 @@ func (rib *Rib) GetRoutes() []Route {
 func (rib *Rib) GetRoutesForPrefix(prefix netip.Prefix) []Route {
 	routes := make([]Route, 0)
 	for _, m := range rib.ipt.Subnets(prefix) {
-		for r, _ := range m {
-			routes = append(routes, r)
+		for r := range m.All() {
+			routes = append(routes, r.(Route))
 		}
 	}
 	return routes
@@ -70,8 +68,8 @@ func (rib *Rib) LongestPrefixMatch(ip netip.Addr) []Route {
 	if !ok {
 		return routes
 	}
-	for r, _ := range m {
-		routes = append(routes, r)
+	for r := range m.All() {
+		routes = append(routes, r.(Route))
 	}
 	return routes
 }
