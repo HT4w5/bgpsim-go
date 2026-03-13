@@ -261,12 +261,23 @@ func (r *BgpRoute) SetArrival(ns int64) {
 
 // Comparison functions
 
-// Compare two BgpRoutes to select the preferred route
-// Ties are considered multipath equal-cost
-// Return -1 if a is preferred
-// Return 1 if b is preferred
-// Return 0 on tie
+// Compare two BgpRoutes to select the preferred route.
+// Ties are considered multipath equal-cost.
+// Returns -1 if a is preferred.
+// Returns 1 if b is preferred.
+// Returns 0 on tie.
 func CompareMultipath(a, b *BgpRoute) int {
+	// Safe to pass in nil
+	if a == nil {
+		if b == nil {
+			return 0
+		} else {
+			return 1
+		}
+	} else if b == nil {
+		return -1
+	}
+
 	// Highest weight
 	if a.weight != b.weight {
 		return -cmp.Compare(a.weight, b.weight) // Prefer higher
@@ -296,10 +307,22 @@ func CompareMultipath(a, b *BgpRoute) int {
 }
 
 func CompareTieBreak(a, b *BgpRoute) int {
+	// Safe to pass in nil
+	if a == nil {
+		if b == nil {
+			return 0
+		} else {
+			return 1
+		}
+	} else if b == nil {
+		return -1
+	}
+
 	// Lowest arrival time
 	if a.arrival != b.arrival {
 		return cmp.Compare(a.arrival, b.arrival)
 	}
 
+	// Compare RxFrom
 	return compareRxFrom(a.receivedFrom, b.receivedFrom)
 }
