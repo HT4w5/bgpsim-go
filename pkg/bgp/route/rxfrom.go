@@ -1,6 +1,7 @@
 package route
 
 import (
+	"cmp"
 	"encoding/binary"
 	"hash/fnv"
 	"net/netip"
@@ -15,7 +16,6 @@ const (
 )
 
 type RxFrom struct {
-	hash        uint32
 	iface       string
 	linkLocalIP netip.Addr
 	t           RxFromType
@@ -27,7 +27,6 @@ func NewRxFrom(opts ...func(*RxFrom)) RxFrom {
 		opt(&rxf)
 	}
 
-	rxf.computeHash()
 	return rxf
 }
 
@@ -62,7 +61,19 @@ func WithType(t RxFromType) func(*RxFrom) {
 // Getter methods
 
 func (rxf *RxFrom) Hash() uint32 {
-	return rxf.hash
+	h := fnv.New32a()
+	binary.Write(h, binary.BigEndian, rxf.t)
+
+	switch rxf.t {
+	case Local:
+	case IP:
+		ipBytes := rxf.linkLocalIP.As16()
+		h.Write(ipBytes[:])
+	case Interface:
+		h.Write([]byte(rxf.iface))
+	}
+
+	return h.Sum32()
 }
 
 func (rxf *RxFrom) Iface() string {
@@ -77,18 +88,21 @@ func (rxf *RxFrom) Type() RxFromType {
 	return rxf.t
 }
 
-func (rxf *RxFrom) computeHash() {
-	h := fnv.New32a()
-	binary.Write(h, binary.BigEndian, rxf.t)
-
-	switch rxf.t {
-	case Local:
-	case IP:
-		ipBytes := rxf.linkLocalIP.As16()
-		h.Write(ipBytes[:])
-	case Interface:
-		h.Write([]byte(rxf.iface))
+func compareRxFrom(a, b RxFrom) int {
+	// Lowest type
+	// Local < IP < Interface
+	if a.t != b.t {
+		return cmp.Compare(a.t, b.t) // Prefer lowest
 	}
 
-	rxf.hash = h.Sum32()
+	switch a.t {
+	case Local:
+		fallthrough
+	case IP:
+		return a.linkLocalIP.Compare(b.linkLocalIP)
+	case Interface:
+		return cmp.Compare(a.iface, b.iface)
+	}
+
+	return 0
 }
