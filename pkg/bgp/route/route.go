@@ -1,9 +1,11 @@
 package route
 
 import (
+	"cmp"
 	"encoding/binary"
 	"hash/fnv"
 	"net/netip"
+	"time"
 
 	"github.com/HT4w5/bgpsim-go/pkg/nexthop"
 )
@@ -11,10 +13,10 @@ import (
 // BgpRoute represents a BGP route
 // Inmutable once created
 type BgpRoute struct {
+	// Hashed fields
 	adminCost       int
 	asPath          []uint32
 	bgpAdminCost    int
-	hash            uint32
 	localPreference uint32
 	metric          int
 	nextHop         nexthop.NextHop
@@ -26,11 +28,17 @@ type BgpRoute struct {
 	srcPrefixLength int
 	tag             int
 	weight          int
+
+	// Not hashed fields
+	hash    uint32
+	arrival int64 // Unix ns timestamp, implicitly set on creation
 }
 
 // Create new BgpRoute
 func New(opts ...func(*BgpRoute)) *BgpRoute {
-	r := &BgpRoute{}
+	r := &BgpRoute{
+		arrival: time.Now().UnixMicro(),
+	}
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -43,7 +51,6 @@ func (r *BgpRoute) Clone(opts ...func(*BgpRoute)) *BgpRoute {
 		adminCost:       r.adminCost,
 		asPath:          make([]uint32, len(r.asPath)),
 		bgpAdminCost:    r.bgpAdminCost,
-		hash:            r.hash,
 		localPreference: r.localPreference,
 		metric:          r.metric,
 		nextHop:         r.nextHop,
@@ -55,6 +62,7 @@ func (r *BgpRoute) Clone(opts ...func(*BgpRoute)) *BgpRoute {
 		srcPrefixLength: r.srcPrefixLength,
 		tag:             r.tag,
 		weight:          r.weight,
+		arrival:         time.Now().UnixNano(),
 	}
 
 	// Copy AsPath
@@ -106,10 +114,6 @@ func (r *BgpRoute) BgpAdminCost() int {
 	return r.bgpAdminCost
 }
 
-func (r *BgpRoute) Hash() uint32 {
-	return r.hash
-}
-
 func (r *BgpRoute) LocalPreference() uint32 {
 	return r.localPreference
 }
@@ -152,6 +156,16 @@ func (r *BgpRoute) Tag() int {
 
 func (r *BgpRoute) Weight() int {
 	return r.weight
+}
+
+// Special Getters
+
+func (r *BgpRoute) Hash() uint32 {
+	return r.hash
+}
+
+func (r *BgpRoute) Arrival() int64 {
+	return r.arrival
 }
 
 // Options
@@ -238,4 +252,54 @@ func WithWeight(weight int) func(*BgpRoute) {
 	return func(r *BgpRoute) {
 		r.weight = weight
 	}
+}
+
+// Override arrival time
+func (r *BgpRoute) SetArrival(ns int64) {
+	r.arrival = ns
+}
+
+// Comparison functions
+
+// Compare two BgpRoutes to select the preferred route
+// Ties are considered multipath equal-cost
+// Return -1 if a is preferred
+// Return 1 if b is preferred
+// Return 0 on tie
+func CompareMultipath(a, b *BgpRoute) int {
+	// Highest weight
+	if a.weight != b.weight {
+		return -cmp.Compare(a.weight, b.weight) // Prefer higher
+	}
+
+	// Highest localPreference
+	if a.localPreference != b.localPreference {
+		return -cmp.Compare(a.localPreference, b.localPreference) // Prefer higher
+	}
+
+	// Lowest adminCost
+	if a.adminCost != b.adminCost {
+		return cmp.Compare(a.adminCost, b.adminCost) // Prefer lower
+	}
+
+	// Shortest asPath
+	if len(a.asPath) != len(b.asPath) {
+		return cmp.Compare(len(a.asPath), len(b.asPath)) // Prefer lower
+	}
+
+	// Lowest metric
+	if a.metric != b.metric {
+		return cmp.Compare(a.metric, b.metric) // Prefer lower
+	}
+
+	return 0
+}
+
+func CompareTieBreak(a, b *BgpRoute) int {
+	// Lowest arrival time
+	if a.arrival != b.arrival {
+		return cmp.Compare(a.arrival, b.arrival)
+	}
+
+	return compareRxFrom(a.receivedFrom, b.receivedFrom)
 }
