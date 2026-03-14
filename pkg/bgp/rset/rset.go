@@ -58,13 +58,21 @@ func New(routes []*route.BgpRoute, opts ...func(*RouteSet)) *RouteSet {
 
 		rs.multipathSet = make(map[uint32]*route.BgpRoute)
 
+		multipathCount := 0 // Track multipath count
 		for _, r := range routes {
 			if route.CompareMultipath(best, r) == 0 {
 				rs.multipathSet[r.Hash()] = r
+				multipathCount++
+			}
+			if multipathCount >= maxPaths {
+				break
 			}
 		}
 
-		// Get best path
+		for _, best = range rs.multipathSet { // Get first multipath route
+			break
+		}
+
 		for _, r := range rs.multipathSet {
 			if route.CompareTieBreak(best, r) > 0 {
 				best = r
@@ -100,4 +108,18 @@ func (rs *RouteSet) Eq(other *RouteSet) bool {
 		}
 		return rs.bestPath.Hash() == other.bestPath.Hash()
 	}
+}
+
+// Getters
+
+func (rs *RouteSet) BestPath() *route.BgpRoute {
+	return rs.bestPath
+}
+
+func (rs *RouteSet) MultipathSet() []*route.BgpRoute {
+	set := make([]*route.BgpRoute, 0, len(rs.multipathSet))
+	for _, r := range rs.multipathSet {
+		set = append(set, r)
+	}
+	return set
 }
